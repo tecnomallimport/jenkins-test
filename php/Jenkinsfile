@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+    parameters{
+        string(name: 'name_container', defaultValue: 'test', description: 'nombre docker')
+        string(name: 'name_image', defaultValue: 'itest', description: 'nombre imagen')
+        string(name: 'tag_image', defaultValue: 'latest', description: 'etiqueta imagen')
+        string(name: 'port_image', defaultValue: '81', description: 'puerto contenedor')
+    }
+    environment {
+        final_name = "${name_container}${tag_image}${port_image}"
+    }
+    stages{
+        stage("STOP / RM") {
+            when{
+                expression {
+                    DOCKER_EXIST = sh(returnStdout: true, script: 'echo "$(docker ps -q --filter name=${final_name})"')
+                }
+            }
+            steps {
+                script {
+                    sh '''
+                        docker stop ${final_name}
+                    '''
+                }
+            }
+        }
+        stage("BUILD") {
+            steps {
+                script {
+                    sh '''
+                        docker build . -t ${final_name}:${tag_image}
+                    '''
+                }
+            }
+        }
+        stage("RUN") {
+            steps {
+                script {
+                    sh '''
+                        docker run -dp ${port_image}:80 --name ${final_name} ${name_image}:${tag_image}
+                    '''
+                }
+            }
+        }
+    }
+    post {
+        always {
+            sh "echo 'FASE always'"
+        }
+        success {
+            sh "echo 'FASE success'"
+        }
+        failure {
+            sh "echo 'FASE failure'"
+        }
+    }
+
+}
